@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Binder
 import android.os.IBinder
 import java.io.IOException
 
@@ -14,11 +15,15 @@ class MusicPlayerService : Service(),
     private var currentTrack = 0
     private lateinit var trackList: List<Int>
 
-    var isPaused = false
+    private var isPaused = false
     var nowPlaying = ""
 
-    override fun onBind(intent: Intent): IBinder {
-        TODO("Return the communication channel to the service.")
+    inner class LocalBinder: Binder() {
+        fun getService():MusicPlayerService = this@MusicPlayerService
+    }
+
+    override fun onBind(intent: Intent): IBinder? {
+        return LocalBinder()
     }
 
     override fun onCreate() {
@@ -27,9 +32,28 @@ class MusicPlayerService : Service(),
         mediaPlayer.setOnPreparedListener(this)
         trackList = listOf(R.raw.track1, R.raw.track2 ,R.raw.track3)
     }
-    override fun onPrepared(p0: MediaPlayer?) {
-        TODO("Not yet implemented")
+    override fun onPrepared(mp: MediaPlayer?) {
+        mp?.start()
+    }
+    override fun onDestroy() {
+        super.onDestroy()
+        mediaPlayer.release()
+    }
 
+    override fun onStartCommand(intent: Intent?, flags: Int,
+                                startId: Int): Int {
+        intent?.action?.let { action ->
+            when (action){
+                "ACTION_PLAY" -> playTrack(currentTrack)
+                "ACTION_PAUSE" -> pauseTrack()
+                "ACTION_SKIP" -> skipTrack()
+                "ACTION_STOP" -> {
+                    stopTrack()
+                    stopSelf()
+                }
+            }
+        }
+        return START_NOT_STICKY;
     }
 
     private fun playTrack(trackIndex:Int){
@@ -61,4 +85,12 @@ class MusicPlayerService : Service(),
         currentTrack = (currentTrack + 1) % trackList.size
         playTrack(currentTrack)
     }
+
+    fun stopTrack() {
+        mediaPlayer.stop()
+        mediaPlayer.release()
+        mediaPlayer = MediaPlayer()
+    }
+
+
 }
